@@ -3,15 +3,18 @@ import pyautogui
 import threading
 from pynput import keyboard
 import time
+import random
+
 
 # CRUCIAL : Désactiver le délai de PyAutoGUI
 pyautogui.PAUSE = 0
+
 
 class AutoClicker:
     def __init__(self, root):
         self.root = root
         self.root.title("ClickVite")
-        self.root.geometry("480x800")
+        self.root.geometry("480x850")
         self.root.resizable(False, False)
         
         self.is_running = False
@@ -19,6 +22,7 @@ class AutoClicker:
         self.current_hotkey = None
         self.hotkey_display = "F6"
         self.capturing_key = False
+        self.spread_enabled = False
         
         # Couleurs purple theme moderne
         self.colors = {
@@ -37,15 +41,15 @@ class AutoClicker:
         
         # Hiérarchie typographique unifiée
         self.fonts = {
-            "title": ctk.CTkFont(size=32, weight="bold"),          # Titre principal
-            "card_title": ctk.CTkFont(size=13, weight="bold"),     # Titres de cartes
-            "value": ctk.CTkFont(size=48, weight="bold"),          # Valeurs principales (CPS)
-            "counter": ctk.CTkFont(size=32, weight="bold"),        # Compteur (réduit)
-            "label": ctk.CTkFont(size=11),                         # Labels/sous-textes
-            "button": ctk.CTkFont(size=14, weight="bold"),         # Texte des boutons
-            "button_large": ctk.CTkFont(size=18, weight="bold"),   # Bouton START/STOP
-            "display": ctk.CTkFont(size=20, weight="bold"),        # Affichage hotkey (réduit)
-            "info": ctk.CTkFont(size=10)                           # Info footer
+            "title": ctk.CTkFont(size=32, weight="bold"),
+            "card_title": ctk.CTkFont(size=13, weight="bold"),
+            "value": ctk.CTkFont(size=48, weight="bold"),
+            "counter": ctk.CTkFont(size=32, weight="bold"),
+            "label": ctk.CTkFont(size=11),
+            "button": ctk.CTkFont(size=14, weight="bold"),
+            "button_large": ctk.CTkFont(size=18, weight="bold"),
+            "display": ctk.CTkFont(size=20, weight="bold"),
+            "info": ctk.CTkFont(size=10)
         }
         
         ctk.set_appearance_mode("dark")
@@ -62,13 +66,13 @@ class AutoClicker:
         
     def create_background(self):
         """Crée un fond dégradé"""
-        canvas = ctk.CTkCanvas(self.root, width=480, height=800, 
+        canvas = ctk.CTkCanvas(self.root, width=480, height=850, 
                                bg=self.colors["bg"], highlightthickness=0)
         canvas.place(x=0, y=0)
         
         # Gradient simple
-        for i in range(800):
-            ratio = i / 800
+        for i in range(850):
+            ratio = i / 850
             color = self.interpolate_color("#0a0a14", "#1a1a2e", ratio)
             canvas.create_line(0, i, 480, i, fill=color, width=1)
     
@@ -79,7 +83,7 @@ class AutoClicker:
         
         r = int(c1[0] + (c2[0] - c1[0]) * ratio)
         g = int(c1[1] + (c2[1] - c1[1]) * ratio)
-        b = int(c1[2] + (c2[2] - c1[2]) * ratio)
+        b = int(c1[2] + (c2[2]) * ratio)
         
         return f'#{r:02x}{g:02x}{b:02x}'
     
@@ -98,14 +102,14 @@ class AutoClicker:
         
         title = ctk.CTkLabel(
             header_frame,
-            text="Auto Clicker",
+            text="ClickVite",
             font=self.fonts["title"],
             text_color=self.colors["accent"]
         )
         title.pack()
         
-        # === CARD 1: Speed Control ===
-        speed_card = self.create_card(inner_container, "⚡ Speed Control")
+        # === CARD 1: Speed Control (CPS) ===
+        speed_card = self.create_card(inner_container, "⚡ Speed Control (CPS)")
         
         self.cps_value_label = ctk.CTkLabel(
             speed_card,
@@ -113,21 +117,14 @@ class AutoClicker:
             font=self.fonts["value"],
             text_color=self.colors["primary"]
         )
-        self.cps_value_label.pack(pady=(15, 5))
+        self.cps_value_label.pack(pady=(15, 15))
         
-        cps_unit = ctk.CTkLabel(
-            speed_card,
-            text="clicks per second",
-            font=self.fonts["label"],
-            text_color=self.colors["text_secondary"]
-        )
-        cps_unit.pack(pady=(0, 15))
-        
+        # Slider réduit à 30 CPS max
         self.cps_slider = ctk.CTkSlider(
             speed_card,
             from_=1,
-            to=50,
-            number_of_steps=49,
+            to=30,
+            number_of_steps=29,
             command=self.update_cps_label,
             width=340,
             height=18,
@@ -156,7 +153,34 @@ class AutoClicker:
         self.click_type.set("Left")
         self.click_type.pack(pady=(15, 15), padx=20, fill="x")
         
-        # === CARD 3: Hotkey ===
+        # === CARD 3: Click Spread ===
+        spread_card = self.create_card(inner_container, "🎲 Click Spread")
+        
+        spread_container = ctk.CTkFrame(spread_card, fg_color="transparent")
+        spread_container.pack(pady=(15, 15), padx=20, fill="x")
+        
+        spread_label = ctk.CTkLabel(
+            spread_container,
+            text="Randomize click position",
+            font=self.fonts["label"],
+            text_color=self.colors["text_secondary"]
+        )
+        spread_label.pack(side="left")
+        
+        self.spread_switch = ctk.CTkSwitch(
+            spread_container,
+            text="",
+            command=self.toggle_spread,
+            fg_color=self.colors["border"],
+            progress_color=self.colors["primary"],
+            button_color=self.colors["accent"],
+            button_hover_color=self.colors["primary_hover"],
+            width=50,
+            height=25
+        )
+        self.spread_switch.pack(side="right")
+        
+        # === CARD 4: Hotkey ===
         hotkey_card = self.create_card(inner_container, "⌨️ Hotkey")
         
         hotkey_container = ctk.CTkFrame(hotkey_card, fg_color="transparent")
@@ -169,7 +193,7 @@ class AutoClicker:
             fg_color=self.colors["border"],
             hover_color=self.colors["card_hover"],
             text_color=self.colors["accent"],
-            height=55,  # RÉDUIT à 55px
+            height=55,
             corner_radius=12,
             command=self.start_key_capture
         )
@@ -182,63 +206,63 @@ class AutoClicker:
             fg_color=self.colors["primary"],
             hover_color=self.colors["primary_hover"],
             width=100,
-            height=55,  # RÉDUIT à 55px
+            height=55,
             corner_radius=12,
             command=self.start_key_capture
         )
         capture_btn.pack(side="right")
         
-        # === CARD 4: Click Counter ===
+        # === CARD 5: Click Counter ===
         counter_card = self.create_card(inner_container, "📊 Total Clicks")
         
         counter_content = ctk.CTkFrame(counter_card, fg_color="transparent")
         counter_content.pack(pady=(15, 15), padx=20, fill="x")
         
-        # Compteur - MÊME HAUTEUR 55px
         counter_display = ctk.CTkFrame(
             counter_content,
             fg_color=self.colors["border"],
             corner_radius=12,
-            height=55  # RÉDUIT à 55px
+            height=55
         )
         counter_display.pack(side="left", fill="both", expand=True, padx=(0, 10))
-        counter_display.pack_propagate(False)  # Force la hauteur
+        counter_display.pack_propagate(False)
         
         self.counter_label = ctk.CTkLabel(
             counter_display,
             text="0",
-            font=self.fonts["counter"],  # Police réduite à 32px
+            font=self.fonts["counter"],
             text_color=self.colors["accent"]
         )
         self.counter_label.place(relx=0.5, rely=0.5, anchor="center")
         
-        # Bouton Reset - MÊME HAUTEUR 55px
         reset_btn = ctk.CTkButton(
             counter_content,
-            text="RESET",
+            text="Reset",
             font=self.fonts["button"],
             fg_color=self.colors["primary"],
             hover_color=self.colors["primary_hover"],
             text_color=self.colors["text"],
             width=100,
-            height=55,  # RÉDUIT à 55px
+            height=55,
             corner_radius=12,
             command=self.reset_counter
         )
         reset_btn.pack(side="right")
         
-        # === Status ===
+        # === Status - MODIFIÉ ICI ===
         status_container = ctk.CTkFrame(
             inner_container,
             fg_color=self.colors["card"],
             corner_radius=15,
             border_width=2,
-            border_color=self.colors["border"]
+            border_color=self.colors["border"],
+            height=65  # Hauteur fixe
         )
         status_container.pack(fill="x", pady=(0, 12))
+        status_container.pack_propagate(False)  # Empêche le rétrécissement
         
         status_inner = ctk.CTkFrame(status_container, fg_color="transparent")
-        status_inner.pack(pady=15)
+        status_inner.place(relx=0.5, rely=0.5, anchor="center")  # Centré verticalement
         
         self.status_indicator = ctk.CTkLabel(
             status_inner,
@@ -300,6 +324,12 @@ class AutoClicker:
         
         return card
     
+    def toggle_spread(self):
+        """Active/désactive le spread des clics"""
+        self.spread_enabled = self.spread_switch.get()
+        status = "activé" if self.spread_enabled else "désactivé"
+        print(f"Click spread {status}")
+    
     def start_key_capture(self):
         """Démarre la capture de touche"""
         if self.capturing_key:
@@ -311,7 +341,6 @@ class AutoClicker:
             text_color=self.colors["primary"]
         )
         
-        # Stop le listener actuel
         if hasattr(self, 'key_listener') and self.key_listener:
             self.key_listener.stop()
         
@@ -319,7 +348,6 @@ class AutoClicker:
             if not self.capturing_key:
                 return
             
-            # Capturer la touche
             try:
                 if hasattr(key, 'char') and key.char:
                     captured = key.char.upper()
@@ -335,7 +363,6 @@ class AutoClicker:
             except Exception as e:
                 print(f"Erreur capture: {e}")
         
-        # Listener temporaire
         self.temp_listener = keyboard.Listener(on_press=on_key_press)
         self.temp_listener.start()
     
@@ -351,12 +378,10 @@ class AutoClicker:
             text_color=self.colors["accent"]
         )
         
-        # Mettre à jour le label info
         self.info_label.configure(text=f"Press {self.hotkey_display} anywhere to start/stop")
         
         print(f"Hotkey définie: {self.current_hotkey}")
         
-        # Redémarrer le listener
         self.setup_hotkey_listener()
     
     def setup_hotkey_listener(self):
@@ -410,21 +435,38 @@ class AutoClicker:
         self.click_thread.start()
     
     def click_loop(self, cps):
-        """Boucle de clic ultra-rapide"""
+        """Boucle de clic avec randomisation du timing et spread"""
         button = self.get_button_type()
-        interval = 1.0 / cps
+        base_interval = 1.0 / cps
         next_click = time.perf_counter()
+        
+        # Enregistrer la position initiale de la souris
+        initial_pos = pyautogui.position()
         
         while self.is_running:
             current_time = time.perf_counter()
             
             if current_time >= next_click:
-                pyautogui.click(button=button)
+                # Calculer la position du clic
+                if self.spread_enabled:
+                    # Spread : ajouter un décalage aléatoire de -3 à +3 pixels
+                    offset_x = random.randint(-3, 3)
+                    offset_y = random.randint(-3, 3)
+                    click_x = initial_pos[0] + offset_x
+                    click_y = initial_pos[1] + offset_y
+                    pyautogui.click(x=click_x, y=click_y, button=button)
+                else:
+                    # Clic normal à la position actuelle
+                    pyautogui.click(button=button)
+                
                 self.click_count += 1
                 self.root.after(0, self.update_counter)
-                next_click += interval
+                
+                # Randomisation du délai : ajouter entre 0.0001 et 0.0002 secondes
+                random_delay = random.uniform(0.0001, 0.0002)
+                next_click += base_interval + random_delay
             
-            time.sleep(0.0001)
+            time.sleep(0.00001)
     
     def stop_clicking(self):
         """Arrête l'auto-clicker"""
@@ -448,6 +490,8 @@ class AutoClicker:
     def update_counter(self):
         """Met à jour le compteur"""
         self.counter_label.configure(text=str(self.click_count))
+
+
 
 if __name__ == "__main__":
     root = ctk.CTk()
