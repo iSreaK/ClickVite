@@ -1,8 +1,6 @@
-# 🖱️ ClickVite - Auto Clicker Pro
+# 🖱️ ClickVite - Auto Clicker
 
 Un auto-clicker moderne et élégant avec interface graphique dark/purple. Simple, rapide et efficace.
-
-![ClickVite](icon.png)
 
 ## ✨ Fonctionnalités
 
@@ -17,9 +15,9 @@ Un auto-clicker moderne et élégant avec interface graphique dark/purple. Simpl
 
 ### Option 1 : Utiliser l'exécutable (Recommandé)
 
-1. Télécharge `ClickVite.exe` depuis [Releases](https://github.com/iSreaK/ClickVite/releases)
+1. Télécharge `ClickVite.exe` depuis la partie **Créer l'exécutable toi-même**
 2. Double-clique sur l'exe
-3. C'est tout ! Aucune installation requise ✅
+3. C'est tout ! Aucune installation requise ni python ✅
 
 > **Note :** Si Windows Defender bloque l'exe, clique sur "Plus d'infos" puis "Exécuter quand même". C'est normal pour les applications non signées.
 
@@ -53,12 +51,12 @@ Un auto-clicker moderne et élégant avec interface graphique dark/purple. Simpl
 
 ## 🛠️ Créer l'exécutable toi-même
 
-1. Si tu veux compiler l'exe :
+### Si tu veux compiler l'exe :
 
-### Installe PyInstaller
+1. Installe PyInstaller
 `pip install pyinstaller`
 
-### Crée l'exécutable
+2. Crée l'exécutable
 `python -m PyInstaller --onefile --windowed --icon=icon.ico ClicVite.py`
 
 **Ton exe sera dans le dossier dist/**
