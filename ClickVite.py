@@ -13,8 +13,8 @@ pyautogui.PAUSE = 0
 class AutoClicker:
     def __init__(self, root):
         self.root = root
-        self.root.title("ClickVite")
-        self.root.geometry("480x850")
+        self.root.title("ClickVite V2")
+        self.root.geometry("480x850")  # Réduit car on a retiré une carte
         self.root.resizable(False, False)
         
         self.is_running = False
@@ -23,6 +23,7 @@ class AutoClicker:
         self.hotkey_display = "F6"
         self.capturing_key = False
         self.spread_enabled = False
+        self.key_listener = None
         
         # Couleurs purple theme moderne
         self.colors = {
@@ -62,7 +63,7 @@ class AutoClicker:
         self.create_ui()
         
         # Setup hotkey listener après l'UI
-        self.setup_hotkey_listener()
+        self.setup_listeners()
         
     def create_background(self):
         """Crée un fond dégradé"""
@@ -83,7 +84,7 @@ class AutoClicker:
         
         r = int(c1[0] + (c2[0] - c1[0]) * ratio)
         g = int(c1[1] + (c2[1] - c1[1]) * ratio)
-        b = int(c1[2] + (c2[2]) * ratio)
+        b = int(c1[2] + (c2[2] - c1[2]) * ratio)
         
         return f'#{r:02x}{g:02x}{b:02x}'
     
@@ -102,7 +103,7 @@ class AutoClicker:
         
         title = ctk.CTkLabel(
             header_frame,
-            text="ClickVite",
+            text="ClickVite V2",
             font=self.fonts["title"],
             text_color=self.colors["accent"]
         )
@@ -119,7 +120,6 @@ class AutoClicker:
         )
         self.cps_value_label.pack(pady=(15, 15))
         
-        # Slider réduit à 30 CPS max
         self.cps_slider = ctk.CTkSlider(
             speed_card,
             from_=1,
@@ -141,7 +141,7 @@ class AutoClicker:
         
         self.click_type = ctk.CTkSegmentedButton(
             click_card,
-            values=["Left", "Right", "Middle"],
+            values=["Left", "Right", "Both"],
             selected_color=self.colors["primary"],
             selected_hover_color=self.colors["primary_hover"],
             unselected_color=self.colors["border"],
@@ -249,20 +249,20 @@ class AutoClicker:
         )
         reset_btn.pack(side="right")
         
-        # === Status - MODIFIÉ ICI ===
+        # === Status ===
         status_container = ctk.CTkFrame(
             inner_container,
             fg_color=self.colors["card"],
             corner_radius=15,
             border_width=2,
             border_color=self.colors["border"],
-            height=65  # Hauteur fixe
+            height=65
         )
         status_container.pack(fill="x", pady=(0, 12))
-        status_container.pack_propagate(False)  # Empêche le rétrécissement
+        status_container.pack_propagate(False)
         
         status_inner = ctk.CTkFrame(status_container, fg_color="transparent")
-        status_inner.place(relx=0.5, rely=0.5, anchor="center")  # Centré verticalement
+        status_inner.place(relx=0.5, rely=0.5, anchor="center")
         
         self.status_indicator = ctk.CTkLabel(
             status_inner,
@@ -297,7 +297,7 @@ class AutoClicker:
         # Info footer
         self.info_label = ctk.CTkLabel(
             inner_container,
-            text=f"Press {self.hotkey_display} anywhere to start/stop",
+            text=f"Press {self.hotkey_display} to start/stop",
             font=self.fonts["info"],
             text_color=self.colors["text_secondary"]
         )
@@ -378,20 +378,19 @@ class AutoClicker:
             text_color=self.colors["accent"]
         )
         
-        self.info_label.configure(text=f"Press {self.hotkey_display} anywhere to start/stop")
+        self.info_label.configure(text=f"Press {self.hotkey_display} to start/stop")
         
         print(f"Hotkey définie: {self.current_hotkey}")
         
-        self.setup_hotkey_listener()
+        self.setup_listeners()
     
-    def setup_hotkey_listener(self):
-        """Configure le listener de hotkey"""
+    def setup_listeners(self):
+        """Configure le listener de hotkey (Toggle uniquement)"""
         if hasattr(self, 'key_listener') and self.key_listener:
             self.key_listener.stop()
         
         def on_key_press(key):
             if key == self.current_hotkey:
-                print(f"Hotkey pressée: {key}")
                 self.root.after(0, self.toggle_clicking)
         
         self.key_listener = keyboard.Listener(on_press=on_key_press)
@@ -402,10 +401,15 @@ class AutoClicker:
         """Met à jour l'affichage des CPS"""
         self.cps_value_label.configure(text=str(int(value)))
     
-    def get_button_type(self):
-        """Retourne le type de bouton"""
-        button_map = {"Left": "left", "Right": "right", "Middle": "middle"}
-        return button_map.get(self.click_type.get(), "left")
+    def get_button_types(self):
+        """Retourne une liste des types de boutons à cliquer"""
+        click_type = self.click_type.get()
+        if click_type == "Both":
+            return ["left", "right"]
+        elif click_type == "Left":
+            return ["left"]
+        else:
+            return ["right"]
     
     def toggle_clicking(self):
         """Toggle start/stop"""
@@ -436,7 +440,7 @@ class AutoClicker:
     
     def click_loop(self, cps):
         """Boucle de clic avec randomisation du timing et spread"""
-        button = self.get_button_type()
+        buttons = self.get_button_types()
         base_interval = 1.0 / cps
         next_click = time.perf_counter()
         
@@ -447,22 +451,21 @@ class AutoClicker:
             current_time = time.perf_counter()
             
             if current_time >= next_click:
-                # Calculer la position du clic
-                if self.spread_enabled:
-                    # Spread : ajouter un décalage aléatoire de -3 à +3 pixels
-                    offset_x = random.randint(-3, 3)
-                    offset_y = random.randint(-3, 3)
-                    click_x = initial_pos[0] + offset_x
-                    click_y = initial_pos[1] + offset_y
-                    pyautogui.click(x=click_x, y=click_y, button=button)
-                else:
-                    # Clic normal à la position actuelle
-                    pyautogui.click(button=button)
+                # Cliquer avec chaque type de bouton configuré
+                for button in buttons:
+                    if self.spread_enabled:
+                        offset_x = random.randint(-3, 3)
+                        offset_y = random.randint(-3, 3)
+                        click_x = initial_pos[0] + offset_x
+                        click_y = initial_pos[1] + offset_y
+                        pyautogui.click(x=click_x, y=click_y, button=button)
+                    else:
+                        pyautogui.click(button=button)
+                    
+                    self.click_count += 1
                 
-                self.click_count += 1
                 self.root.after(0, self.update_counter)
                 
-                # Randomisation du délai : ajouter entre 0.0001 et 0.0002 secondes
                 random_delay = random.uniform(0.0001, 0.0002)
                 next_click += base_interval + random_delay
             
@@ -490,7 +493,6 @@ class AutoClicker:
     def update_counter(self):
         """Met à jour le compteur"""
         self.counter_label.configure(text=str(self.click_count))
-
 
 
 if __name__ == "__main__":
